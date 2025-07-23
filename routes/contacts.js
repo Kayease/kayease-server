@@ -5,10 +5,12 @@ const router = express.Router();
 
 // Helper function to get client IP
 const getClientIP = (req) => {
-  return req.headers['x-forwarded-for'] || 
-         req.connection.remoteAddress || 
-         req.socket.remoteAddress ||
-         (req.connection.socket ? req.connection.socket.remoteAddress : null);
+  return (
+    req.headers["x-forwarded-for"] ||
+    req.connection.remoteAddress ||
+    req.socket.remoteAddress ||
+    (req.connection.socket ? req.connection.socket.remoteAddress : null)
+  );
 };
 
 // POST - Create new contact inquiry
@@ -23,25 +25,34 @@ router.post("/", async (req, res) => {
       budget,
       timeline,
       message,
-      terms
+      terms,
     } = req.body;
 
     // Validation
-    if (!name || !email || !phone || !projectType || !budget || !message || !terms) {
+    if (
+      !name ||
+      !email ||
+      !phone ||
+      !projectType ||
+      !budget ||
+      !message ||
+      !terms
+    ) {
       return res.status(400).json({
-        error: "All required fields must be provided"
+      error: "All required fields must be provided",
       });
     }
 
-    // Check if email already exists with recent submission (prevent spam)
-    const recentSubmission = await Contact.findOne({
+    // Check if email already submitted 5 times in the last 24 hours (prevent spam)
+    const submissionsCount = await Contact.countDocuments({
       email: email.toLowerCase(),
-      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
+      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Last 24 hours
     });
 
-    if (recentSubmission) {
+    if (submissionsCount >= 5) {
       return res.status(429).json({
-        error: "You have already submitted a contact form recently. Please wait 24 hours before submitting again."
+      error:
+        "You have reached the maximum number of submissions (5) in 24 hours. Please try again later.",
       });
     }
 
@@ -50,43 +61,43 @@ router.post("/", async (req, res) => {
       name: name.trim(),
       email: email.toLowerCase().trim(),
       phone: phone.trim(),
-      company: company?.trim() || '',
+      company: company?.trim() || "",
       projectType,
       budget,
       timeline,
       message: message.trim(),
       terms: true,
       ipAddress: getClientIP(req),
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers["user-agent"],
     });
 
     const savedContact = await newContact.save();
 
     res.status(201).json({
-      message: "Contact inquiry received successfully! We'll get back to you within 24 hours.",
+      message:
+        "Contact inquiry received successfully! We'll get back to you within 24 hours.",
       contact: {
         id: savedContact._id,
         name: savedContact.name,
         email: savedContact.email,
         projectType: savedContact.projectTypeLabel,
         budget: savedContact.budgetLabel,
-        createdAt: savedContact.createdAt
-      }
+        createdAt: savedContact.createdAt,
+      },
     });
-
   } catch (error) {
     console.error("Error creating contact:", error);
-    
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
+
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         error: "Validation failed",
-        details: errors
+        details: errors,
       });
     }
 
     res.status(500).json({
-      error: "Failed to submit contact form. Please try again later."
+      error: "Failed to submit contact form. Please try again later.",
     });
   }
 });
@@ -101,40 +112,40 @@ router.get("/", async (req, res) => {
       priority,
       projectType,
       search,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
+      sortBy = "createdAt",
+      sortOrder = "desc",
       dateFrom,
-      dateTo
+      dateTo,
     } = req.query;
 
     // Build filter object
     const filter = {};
-    
+
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
     if (projectType) filter.projectType = projectType;
-    
+
     // Date range filter
     if (dateFrom || dateTo) {
       filter.createdAt = {};
       if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
       if (dateTo) filter.createdAt.$lte = new Date(dateTo);
     }
-    
+
     // Search filter
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { company: { $regex: search, $options: 'i' } },
-        { message: { $regex: search, $options: 'i' } }
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { company: { $regex: search, $options: "i" } },
+        { message: { $regex: search, $options: "i" } },
       ];
     }
 
     // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sortOptions = {};
-    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
 
     // Execute query
     const [contacts, totalContacts] = await Promise.all([
@@ -143,7 +154,7 @@ router.get("/", async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit))
         .lean(),
-      Contact.countDocuments(filter)
+      Contact.countDocuments(filter),
     ]);
 
     // Calculate pagination info
@@ -159,14 +170,13 @@ router.get("/", async (req, res) => {
         totalContacts,
         hasNextPage,
         hasPrevPage,
-        limit: parseInt(limit)
-      }
+        limit: parseInt(limit),
+      },
     });
-
   } catch (error) {
     console.error("Error fetching contacts:", error);
     res.status(500).json({
-      error: "Failed to fetch contacts"
+      error: "Failed to fetch contacts",
     });
   }
 });
@@ -177,26 +187,25 @@ router.get("/:id", async (req, res) => {
     const { id } = req.params;
 
     const contact = await Contact.findById(id);
-    
+
     if (!contact) {
       return res.status(404).json({
-        error: "Contact not found"
+        error: "Contact not found",
       });
     }
 
     res.json(contact);
-
   } catch (error) {
     console.error("Error fetching contact:", error);
-    
-    if (error.name === 'CastError') {
+
+    if (error.name === "CastError") {
       return res.status(400).json({
-        error: "Invalid contact ID"
+        error: "Invalid contact ID",
       });
     }
-    
+
     res.status(500).json({
-      error: "Failed to fetch contact"
+      error: "Failed to fetch contact",
     });
   }
 });
@@ -205,53 +214,47 @@ router.get("/:id", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      status,
-      priority,
-      isRead
-    } = req.body;
+    const { status, priority, isRead } = req.body;
 
     const updateData = {};
     if (status) updateData.status = status;
     if (priority) updateData.priority = priority;
     if (isRead !== undefined) updateData.isRead = isRead;
 
-    const updatedContact = await Contact.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    );
+    const updatedContact = await Contact.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!updatedContact) {
       return res.status(404).json({
-        error: "Contact not found"
+        error: "Contact not found",
       });
     }
 
     res.json({
       message: "Contact updated successfully",
-      contact: updatedContact
+      contact: updatedContact,
     });
-
   } catch (error) {
     console.error("Error updating contact:", error);
-    
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
+
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         error: "Validation failed",
-        details: errors
+        details: errors,
       });
     }
-    
-    if (error.name === 'CastError') {
+
+    if (error.name === "CastError") {
       return res.status(400).json({
-        error: "Invalid contact ID"
+        error: "Invalid contact ID",
       });
     }
-    
+
     res.status(500).json({
-      error: "Failed to update contact"
+      error: "Failed to update contact",
     });
   }
 });
@@ -270,26 +273,25 @@ router.patch("/:id/read", async (req, res) => {
 
     if (!updatedContact) {
       return res.status(404).json({
-        error: "Contact not found"
+        error: "Contact not found",
       });
     }
 
     res.json({
-      message: `Contact marked as ${isRead ? 'read' : 'unread'}`,
-      contact: updatedContact
+      message: `Contact marked as ${isRead ? "read" : "unread"}`,
+      contact: updatedContact,
     });
-
   } catch (error) {
     console.error("Error updating contact read status:", error);
-    
-    if (error.name === 'CastError') {
+
+    if (error.name === "CastError") {
       return res.status(400).json({
-        error: "Invalid contact ID"
+        error: "Invalid contact ID",
       });
     }
-    
+
     res.status(500).json({
-      error: "Failed to update contact read status"
+      error: "Failed to update contact read status",
     });
   }
 });
@@ -300,28 +302,27 @@ router.delete("/:id", async (req, res) => {
     const { id } = req.params;
 
     const deletedContact = await Contact.findByIdAndDelete(id);
-    
+
     if (!deletedContact) {
       return res.status(404).json({
-        error: "Contact not found"
+        error: "Contact not found",
       });
     }
 
     res.json({
-      message: "Contact deleted successfully"
+      message: "Contact deleted successfully",
     });
-
   } catch (error) {
     console.error("Error deleting contact:", error);
-    
-    if (error.name === 'CastError') {
+
+    if (error.name === "CastError") {
       return res.status(400).json({
-        error: "Invalid contact ID"
+        error: "Invalid contact ID",
       });
     }
-    
+
     res.status(500).json({
-      error: "Failed to delete contact"
+      error: "Failed to delete contact",
     });
   }
 });
@@ -343,24 +344,20 @@ router.get("/stats/overview", async (req, res) => {
       thisWeekContacts,
       statusStats,
       priorityStats,
-      projectTypeStats
+      projectTypeStats,
     ] = await Promise.all([
       Contact.countDocuments(),
-      Contact.countDocuments({ status: 'new' }),
-      Contact.countDocuments({ status: 'contacted' }),
-      Contact.countDocuments({ status: 'in-progress' }),
-      Contact.countDocuments({ status: 'closed' }),
+      Contact.countDocuments({ status: "new" }),
+      Contact.countDocuments({ status: "contacted" }),
+      Contact.countDocuments({ status: "in-progress" }),
+      Contact.countDocuments({ status: "closed" }),
       Contact.countDocuments({ createdAt: { $gte: startOfMonth } }),
       Contact.countDocuments({ createdAt: { $gte: startOfWeek } }),
+      Contact.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+      Contact.aggregate([{ $group: { _id: "$priority", count: { $sum: 1 } } }]),
       Contact.aggregate([
-        { $group: { _id: '$status', count: { $sum: 1 } } }
+        { $group: { _id: "$projectType", count: { $sum: 1 } } },
       ]),
-      Contact.aggregate([
-        { $group: { _id: '$priority', count: { $sum: 1 } } }
-      ]),
-      Contact.aggregate([
-        { $group: { _id: '$projectType', count: { $sum: 1 } } }
-      ])
     ]);
 
     res.json({
@@ -369,7 +366,7 @@ router.get("/stats/overview", async (req, res) => {
         new: newContacts,
         contacted: contactedContacts,
         inProgress: inProgressContacts,
-        closed: closedContacts
+        closed: closedContacts,
       },
       thisMonth: thisMonthContacts,
       thisWeek: thisWeekContacts,
@@ -384,13 +381,12 @@ router.get("/stats/overview", async (req, res) => {
       projectTypeBreakdown: projectTypeStats.reduce((acc, item) => {
         acc[item._id] = item.count;
         return acc;
-      }, {})
+      }, {}),
     });
-
   } catch (error) {
     console.error("Error fetching contact stats:", error);
     res.status(500).json({
-      error: "Failed to fetch contact statistics"
+      error: "Failed to fetch contact statistics",
     });
   }
 });
@@ -402,25 +398,22 @@ router.post("/bulk/update", async (req, res) => {
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({
-        error: "Contact IDs are required"
+        error: "Contact IDs are required",
       });
     }
 
-    const result = await Contact.updateMany(
-      { _id: { $in: ids } },
-      updateData,
-      { runValidators: true }
-    );
+    const result = await Contact.updateMany({ _id: { $in: ids } }, updateData, {
+      runValidators: true,
+    });
 
     res.json({
       message: `${result.modifiedCount} contacts updated successfully`,
-      modifiedCount: result.modifiedCount
+      modifiedCount: result.modifiedCount,
     });
-
   } catch (error) {
     console.error("Error bulk updating contacts:", error);
     res.status(500).json({
-      error: "Failed to update contacts"
+      error: "Failed to update contacts",
     });
   }
 });
@@ -432,7 +425,7 @@ router.post("/bulk/delete", async (req, res) => {
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({
-        error: "Contact IDs are required"
+        error: "Contact IDs are required",
       });
     }
 
@@ -440,13 +433,12 @@ router.post("/bulk/delete", async (req, res) => {
 
     res.json({
       message: `${result.deletedCount} contacts deleted successfully`,
-      deletedCount: result.deletedCount
+      deletedCount: result.deletedCount,
     });
-
   } catch (error) {
     console.error("Error bulk deleting contacts:", error);
     res.status(500).json({
-      error: "Failed to delete contacts"
+      error: "Failed to delete contacts",
     });
   }
 });

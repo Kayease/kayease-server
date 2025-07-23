@@ -12,8 +12,11 @@ import contactRoutes from "./routes/contacts.js";
 dotenv.config();
 
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+app.use(cors({
+  origin: 'http://localhost:8001', // allow your frontend origin
+  credentials: true // if you use cookies/auth
+}));
+app.use(express.json({ limit: "100mb" }));
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Server is running." });

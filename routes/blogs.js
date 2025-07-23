@@ -95,15 +95,27 @@ function extractPublicIdFromUrl(url) {
 
 // Get all blogs
 router.get("/", async (req, res) => {
-  const blogs = await Blog.find().sort({ createdAt: -1 });
-  res.json(blogs);
+  try {
+    const blogs = await Blog.find().sort({ createdAt: -1 });
+    res.json(blogs);
+  } catch (err) {
+    console.error('Error fetching blogs:', err);
+    res.status(500).json({ error: err.message || "Failed to fetch blogs" });
+  }
 });
 
 // Get single blog
 router.get("/:id", async (req, res) => {
-  const blog = await Blog.findById(req.params.id);
-  if (!blog) return res.status(404).json({ error: "Blog not found" });
-  res.json(blog);
+  try {
+    const blog = await Blog.findById(req.params.id);
+    if (!blog) {
+      return res.status(404).json({ error: "Blog not found" });
+    }
+    res.json(blog);
+  } catch (err) {
+    console.error('Error fetching blog by ID:', err);
+    res.status(500).json({ error: err.message || "Failed to fetch blog" });
+  }
 });
 
 // Get blog statistics
