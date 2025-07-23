@@ -7,6 +7,7 @@ import cloudinaryRoutes from "./routes/cloudinary.js";
 import careerRoutes from "./routes/careers.js";
 import clientRoutes from "./routes/clients.js";
 import portfolioRoutes from "./routes/portfolio.js";
+import contactRoutes from "./routes/contacts.js";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use("/api/cloudinary", cloudinaryRoutes);
 app.use("/api/careers", careerRoutes);
 app.use("/api/clients", clientRoutes);
 app.use("/api/portfolio", portfolioRoutes);
+app.use("/api/contacts", contactRoutes);
 
 const MONGO_URI = process.env.MONGO_URI;
 mongoose.connect(MONGO_URI)
