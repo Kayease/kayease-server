@@ -23,7 +23,6 @@ router.post("/", async (req, res) => {
       budget,
       timeline,
       message,
-      newsletter,
       terms
     } = req.body;
 
@@ -56,7 +55,6 @@ router.post("/", async (req, res) => {
       budget,
       timeline,
       message: message.trim(),
-      newsletter: newsletter || false,
       terms: true,
       ipAddress: getClientIP(req),
       userAgent: req.headers['user-agent']
@@ -210,17 +208,13 @@ router.put("/:id", async (req, res) => {
     const {
       status,
       priority,
-      notes,
-      assignedTo,
-      followUpDate
+      isRead
     } = req.body;
 
     const updateData = {};
     if (status) updateData.status = status;
     if (priority) updateData.priority = priority;
-    if (notes !== undefined) updateData.notes = notes;
-    if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
-    if (followUpDate) updateData.followUpDate = new Date(followUpDate);
+    if (isRead !== undefined) updateData.isRead = isRead;
 
     const updatedContact = await Contact.findByIdAndUpdate(
       id,
@@ -258,6 +252,44 @@ router.put("/:id", async (req, res) => {
     
     res.status(500).json({
       error: "Failed to update contact"
+    });
+  }
+});
+
+// PATCH - Mark contact as read/unread (Admin only)
+router.patch("/:id/read", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isRead = true } = req.body;
+
+    const updatedContact = await Contact.findByIdAndUpdate(
+      id,
+      { isRead },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedContact) {
+      return res.status(404).json({
+        error: "Contact not found"
+      });
+    }
+
+    res.json({
+      message: `Contact marked as ${isRead ? 'read' : 'unread'}`,
+      contact: updatedContact
+    });
+
+  } catch (error) {
+    console.error("Error updating contact read status:", error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        error: "Invalid contact ID"
+      });
+    }
+    
+    res.status(500).json({
+      error: "Failed to update contact read status"
     });
   }
 });

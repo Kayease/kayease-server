@@ -67,10 +67,7 @@ const ContactSchema = new mongoose.Schema(
       trim: true,
       maxlength: 2000
     },
-    newsletter: { 
-      type: Boolean, 
-      default: false 
-    },
+
     terms: { 
       type: Boolean, 
       required: true,
@@ -91,16 +88,9 @@ const ContactSchema = new mongoose.Schema(
       enum: ['low', 'medium', 'high', 'urgent'],
       default: 'medium'
     },
-    notes: {
-      type: String,
-      maxlength: 1000
-    },
-    assignedTo: {
-      type: String,
-      trim: true
-    },
-    followUpDate: {
-      type: Date
+    isRead: {
+      type: Boolean,
+      default: false
     },
     source: {
       type: String,
