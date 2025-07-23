@@ -13,7 +13,10 @@ dotenv.config();
 
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:8001', // allow your frontend origin
+  origin: [
+    'http://localhost:8001',
+    'https://kayease-beta.vercel.app'
+  ],
   credentials: true // if you use cookies/auth
 }));
 app.use(express.json({ limit: "100mb" }));
